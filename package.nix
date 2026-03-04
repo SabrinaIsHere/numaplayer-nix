@@ -1,3 +1,9 @@
+# Thank god for the zoom-us repo, lots of this is based on that
+# I tried to patch the binary but it hard depends on /usr/gsettings and almost certainly some other stuff
+# TODO Test in a vm that it works outside my system
+# TODO Update script
+# TODO Desktop file [done]
+# TODO Link plugin somewhere useful
 { 
   stdenv,
   wrapGAppsHook3,
@@ -25,6 +31,9 @@ let
       wrapGAppsHook3
 	];
 
+	dontConfigure = true;
+	dontBuild = true;
+
 	unpackPhase = ''
       dpkg -x $src .
     '';
@@ -32,15 +41,13 @@ let
 	installPhase = ''
 	  runHook preInstall
 
-      mkdir -p $out/opt/numaplayer
-	  install -m755 -D usr/bin/Numa\ Player $out/opt/numaplayer
-	  ln -s /home $out/home
+      mkdir -p $out
+	  cp -r usr/* $out
 
 	  runHook postInstall
 	'';
   };
 in
-# This binary hard depends on /usr/bin/gsettings unfortunately
 buildFHSEnvBubblewrap {
   inherit numaplayer;
   name = pname;
@@ -53,45 +60,9 @@ buildFHSEnvBubblewrap {
 	glib
     glib.dev
 	pipewire
-    #libselinux
 	stdenv.cc.cc
 	alsa-lib
-	#alsa-utils
 	dconf
-	#xdg-desktop-portal-wlr
-    #at-spi2-atk
-    #at-spi2-core
-    #atk
-    #cairo
-    #coreutils
-    #cups
-    #dbus
-    #expat
-    #freetype
-    #gdk-pixbuf
-    #gtk3
-    #libGL
-    #libGLU
-    #libdrm
-    #libgbm
-    #libkrb5
-    #libxkbcommon
-    #nspr
-    #nss
-    #pango
-    #pciutils
-    #pipewire
-    #procps
-    #qt5.qt3d
-    #qt5.qtgamepad
-    #qt5.qtlottie
-    #qt5.qtmultimedia
-    #qt5.qtremoteobjects
-    #qt5.qtxmlpatterns
-    #stdenv.cc.cc
-    #udev
-    #util-linux
-    #wayland
     libx11
     libxcomposite
     libxdamage
@@ -107,21 +78,32 @@ buildFHSEnvBubblewrap {
     libxcb-keysyms
     libxcb-render-util
     libxcb-wm
-    #zlib
   ];
-  
-  extraBwrapArgs = [ "--bind /home /home" ];
 
-  #multiPkgs = pkgs: [
-  #  pkgs.alsa-lib
-  #];
+  extraBwrapArgs = [ 
+    "--bind $HOME $HOME" 
+  ];
+  # Links vst3 plugin to ~/.vst3 and adds desktop file to output
+  extraInstallCommands = ''
+	cp -r ${numaplayer}/lib $out/lib
+	mkdir -p ~/.vst3
+    ln -s $out/lib/vst3/Numa\ Player.vst3 ~/.vst3/Numa\ Player.vst3
+	
+    cp -r ${numaplayer}/share $out/share
+    substituteInPlace \
+      $out/share/applications/Numa\ Player.desktop \
+      --replace-fail /bin/ $out/bin/
+  '';
 
-  runScript = "'/opt/numaplayer/Numa Player'";
+  runScript = "'/bin/Numa Player'";
 
-  meta = with lib; {
+  meta = {
     homepage = "https://www.studiologic-music.com/products/numaplayer/";
 	description = "Virtual instrument and DAW plugin";
-	platforms = platforms.linux;
-	#license = licenses.unfree; Todo Re-enable when done debugging
+	sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
+	platforms = [ "x86_64-linux" ];
+	maintainers = with lib.maintainers; [ sabrinaishere ];
+	mainProgram = "Numa\ Player";
+	#license = lib.licenses.unfree; Todo Re-enable when done debugging
   };
 }
