@@ -1,17 +1,15 @@
 # Thank god for the zoom-us repo, lots of this is based on that
-# I tried to patch the binary but it hard depends on /usr/gsettings and almost certainly some other stuff
-# TODO Test in a vm that it works outside my system
-# TODO Update script
-# TODO Desktop file [done]
-# TODO Link plugin somewhere useful
+# I tried to patch the binary but it hard depends on /usr/bin/gsettings and almost certainly some other stuff
 { 
   stdenv,
   wrapGAppsHook3,
   fetchurl,
   pkgs,
   buildFHSEnvBubblewrap,
-  lib,
+  lib
 }:
+# Fairly self explanatory, fetch the .deb, unpack it, set up the output for the fhsenv and wrap
+# gapp stuff
 let
   pname = "numaplayer";
   version = "2.1.8";
@@ -53,6 +51,9 @@ buildFHSEnvBubblewrap {
   name = pname;
 
   targetPkgs = with pkgs; pkgs: [
+    # Dependencies found via autoPatchelfHook
+	# It seems typical to have this declared at the top of the file but it didn't seem to like
+	# glib.dev or stdenv.cc.cc so I left it here; lmk if it needs changing
     numaplayer
 	freetype
 	fontconfig
@@ -63,6 +64,8 @@ buildFHSEnvBubblewrap {
 	stdenv.cc.cc
 	alsa-lib
 	dconf
+	# I'm not entirely sure that these are all necessary, but I don't want to risk something not
+	# working in a different environment. These are all from the zoom-us dependencies.
     libx11
     libxcomposite
     libxdamage
@@ -80,19 +83,21 @@ buildFHSEnvBubblewrap {
     libxcb-wm
   ];
 
+  # Numa player wants to do a lot of config work in home
   extraBwrapArgs = [ 
     "--bind $HOME $HOME" 
   ];
-  # Links vst3 plugin to ~/.vst3 and adds desktop file to output
+
+  # Vst3 plugin in /usr/lib, .desktop file in /usr/share/applications
+  # I wanted to link the plugin to ~/.vst3 or something but I wasn't sure how or what the convention was
+  # and the aur package leaves it in /usr/lib
   extraInstallCommands = ''
 	cp -r ${numaplayer}/lib $out/lib
-	mkdir -p ~/.vst3
-    ln -s $out/lib/vst3/Numa\ Player.vst3 ~/.vst3/Numa\ Player.vst3
 	
     cp -r ${numaplayer}/share $out/share
     substituteInPlace \
       $out/share/applications/Numa\ Player.desktop \
-      --replace-fail /bin/ $out/bin/
+      --replace-fail \"/usr/bin/Numa\ Player\" numaplayer
   '';
 
   runScript = "'/bin/Numa Player'";
@@ -103,7 +108,7 @@ buildFHSEnvBubblewrap {
 	sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
 	platforms = [ "x86_64-linux" ];
 	maintainers = with lib.maintainers; [ sabrinaishere ];
-	mainProgram = "Numa\ Player";
+	mainProgram = "numaplayer";
 	#license = lib.licenses.unfree; Todo Re-enable when done debugging
   };
 }
